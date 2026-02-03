@@ -1,7 +1,14 @@
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -g -I./include
-# ZMĚNA: Přidány nové soubory
-SRC = src/main.c src/fs_ops.c src/fs_utils.c
+
+# ZMĚNA: Seznam všech nových .c souborů
+SRC = src/main.c \
+      src/fs_utils.c \
+      src/cmd_system.c \
+      src/cmd_dir.c \
+      src/cmd_file.c \
+      src/cmd_extra.c
+
 OBJ = $(SRC:.c=.o)
 TARGET = fs_app
 

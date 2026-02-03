@@ -41,4 +41,9 @@ int is_dir_empty(FILE *f, struct superblock *sb, int inode_id);
 // Uvolní datové bloky a samotný inode (používá se pro rm/rmdir)
 void free_inode_resources(FILE *f, struct superblock *sb, int inode_id);
 
+// --- Helpery pro operace (přesunuto z fs_ops) ---
+void parse_path(const char *path, char *parent_path, char *filename);
+int load_file_content(FILE *f, struct superblock *sb, int inode_id, uint8_t *buffer);
+int write_buffer_to_new_inode(FILE *f, struct superblock *sb, int inode_id, uint8_t *buffer, int size);
+
 #endif

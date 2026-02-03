@@ -213,3 +213,97 @@ void free_inode_resources(FILE *f, struct superblock *sb, int inode_id) {
     // 2. Uvolnění inodu v bitmapě
     set_bit(f, sb, true, inode_id, false); // true = inode bitmap
 }
+
+// Pomocná funkce pro rozdělení cesty na "Rodičovská cesta" a "Jméno souboru"
+// Vstup: path (např. "/data/soubor.txt")
+// Výstup: parent_path ("/data"), filename ("soubor.txt")
+void parse_path(const char *path, char *parent_path, char *filename) {
+    char *path_copy = strdup(path);
+    char *last_slash = strrchr(path_copy, '/');
+
+    if (last_slash == NULL) { 
+        // "soubor.txt" -> root
+        strcpy(parent_path, "/");
+        strncpy(filename, path, 11);
+    } else if (last_slash == path_copy) { 
+        // "/soubor.txt" -> root
+        strcpy(parent_path, "/");
+        strncpy(filename, last_slash + 1, 11);
+    } else { 
+        // "/data/soubor.txt" -> "/data"
+        *last_slash = '\0';
+        strcpy(parent_path, path_copy);
+        strncpy(filename, last_slash + 1, 11);
+    }
+    free(path_copy);
+    
+    // Oříznutí názvu na 12 znaků (bezpečnost)
+    filename[11] = '\0';
+}
+
+// --- POMOCNÉ FUNKCE PRO PRÁCI S OBSAHEM ---
+
+// Načte obsah souboru (inode_id) do bufferu. Buffer musí být alokován volajícím.
+// Vrací počet přečtených bytů.
+int load_file_content(FILE *f, struct superblock *sb, int inode_id, uint8_t *buffer) {
+    struct pseudo_inode inode;
+    read_inode(f, sb, inode_id, &inode);
+
+    int32_t blocks[] = {inode.direct1, inode.direct2, inode.direct3, inode.direct4, inode.direct5};
+    int bytes_remaining = inode.file_size;
+    int bytes_read = 0;
+
+    for (int i = 0; i < 5; i++) {
+        if (blocks[i] == CLUSTER_UNUSED || bytes_remaining <= 0) break;
+
+        long data_addr = sb->data_start_address + (blocks[i] * sb->cluster_size);
+        fseek(f, data_addr, SEEK_SET);
+
+        int to_read = (bytes_remaining > sb->cluster_size) ? sb->cluster_size : bytes_remaining;
+        fread(buffer + bytes_read, 1, to_read, f);
+
+        bytes_read += to_read;
+        bytes_remaining -= to_read;
+    }
+    return bytes_read;
+}
+
+// Zjednodušená funkce pro zápis dat z bufferu do NOVÉHO inodu
+// (Tato logika je vytažena z fs_incp pro znovupoužití)
+int write_buffer_to_new_inode(FILE *f, struct superblock *sb, int inode_id, uint8_t *buffer, int size) {
+    int32_t blocks[5] = {CLUSTER_UNUSED, CLUSTER_UNUSED, CLUSTER_UNUSED, CLUSTER_UNUSED, CLUSTER_UNUSED};
+    int bytes_rem = size;
+    int b_idx = 0;
+
+    while (bytes_rem > 0 && b_idx < 5) {
+        int free_block = find_free_bit(f, sb, false); // false = data bitmap
+        if (free_block == -1) return 0; // Došlo místo
+        
+        set_bit(f, sb, false, free_block, true);
+        blocks[b_idx++] = free_block;
+
+        long data_addr = sb->data_start_address + (free_block * sb->cluster_size);
+        fseek(f, data_addr, SEEK_SET);
+        
+        // Vždy zapíšeme celý cluster (vyčištěný nulami), i když data končí dřív
+        uint8_t cluster_buf[CLUSTER_SIZE] = {0};
+        int to_copy = (bytes_rem > CLUSTER_SIZE) ? CLUSTER_SIZE : bytes_rem;
+        memcpy(cluster_buf, buffer + (size - bytes_rem), to_copy);
+        
+        fwrite(cluster_buf, 1, CLUSTER_SIZE, f);
+        bytes_rem -= to_copy;
+    }
+
+    struct pseudo_inode inode = {0};
+    inode.nodeid = inode_id;
+    inode.file_size = size;
+    inode.references = 1;
+    inode.isDirectory = false;
+    inode.direct1 = blocks[0]; inode.direct2 = blocks[1];
+    inode.direct3 = blocks[2]; inode.direct4 = blocks[3];
+    inode.direct5 = blocks[4];
+    inode.indirect1 = CLUSTER_UNUSED; inode.indirect2 = CLUSTER_UNUSED;
+
+    write_inode(f, sb, inode_id, &inode);
+    return 1;
+}
