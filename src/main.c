@@ -67,6 +67,23 @@ int main(int argc, char **argv) {
         if (fs_incp(fs_name, argv[3], argv[4])) {
             printf("OK\n");
         }
+    } else if (strcmp(command, "xcp") == 0) {
+        if (argc < 6) {
+            printf("Chyba: xcp <s1> <s2> <s3>\n");
+            return 1;
+        }
+        if (fs_xcp(fs_name, argv[3], argv[4], argv[5])) {
+            printf("OK\n");
+        }
+
+    } else if (strcmp(command, "add") == 0) {
+        if (argc < 5) {
+            printf("Chyba: add <s1> <s2>\n");
+            return 1;
+        }
+        if (fs_add(fs_name, argv[3], argv[4])) {
+            printf("OK\n");
+        }
     } else {
         printf("Neznámý příkaz: %s\n", command);
     }

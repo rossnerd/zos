@@ -37,4 +37,10 @@ int fs_mkdir(const char *filename, const char *path);
 // incp <host_path> <vfs_path>
 int fs_incp(const char *filename, const char *host_path, const char *vfs_path);
 
+// Spojí soubory s1 a s2 do nového souboru s3 (xcp s1 s2 s3)
+int fs_xcp(const char *filename, const char *s1, const char *s2, const char *s3);
+
+// Přidá obsah s2 na konec s1 (add s1 s2)
+int fs_add(const char *filename, const char *s1, const char *s2);
+
 #endif // FS_CORE_H
