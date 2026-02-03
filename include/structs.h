@@ -6,6 +6,7 @@
 
 // ID pro volnou položku
 #define ID_ITEM_FREE 0
+#define CLUSTER_UNUSED -1
 // Konstanty pro velikosti
 #define CLUSTER_SIZE 1024   // Pevná velikost clusteru (zjednoduší výpočty)
 #define MAX_NAME_LEN 12     // 8+3 + \0
