@@ -137,3 +137,79 @@ int fs_path_to_inode(const char *filename, const char *path) {
     free(path_copy); fclose(f);
     return current_inode;
 }
+
+// --- MAZÁNÍ A UVOLŇOVÁNÍ ---
+
+int remove_directory_item(FILE *f, struct superblock *sb, int parent_inode_id, char *name) {
+    struct pseudo_inode parent;
+    read_inode(f, sb, parent_inode_id, &parent);
+    
+    int32_t blocks[] = {parent.direct1, parent.direct2, parent.direct3, parent.direct4, parent.direct5};
+    struct directory_item item;
+    int items_per_cluster = sb->cluster_size / sizeof(struct directory_item);
+
+    for (int i = 0; i < 5; i++) {
+        if (blocks[i] == CLUSTER_UNUSED) continue;
+        
+        long cluster_offset = sb->data_start_address + (blocks[i] * sb->cluster_size);
+        
+        for (int j = 0; j < items_per_cluster; j++) {
+            long item_pos = cluster_offset + (j * sizeof(struct directory_item));
+            fseek(f, item_pos, SEEK_SET);
+            fread(&item, sizeof(struct directory_item), 1, f);
+            
+            if (item.item_name[0] != '\0' && strcmp(item.item_name, name) == 0) {
+                // Položku "smažeme" tak, že ji celou vynulujeme
+                // Tím se místo uvolní pro add_directory_item
+                struct directory_item empty_item = {0};
+                fseek(f, item_pos, SEEK_SET);
+                fwrite(&empty_item, sizeof(struct directory_item), 1, f);
+                return 1;
+            }
+        }
+    }
+    return 0; // Nenalezeno
+}
+
+int is_dir_empty(FILE *f, struct superblock *sb, int inode_id) {
+    struct pseudo_inode inode;
+    read_inode(f, sb, inode_id, &inode);
+    
+    int32_t blocks[] = {inode.direct1, inode.direct2, inode.direct3, inode.direct4, inode.direct5};
+    struct directory_item item;
+    int items_per_cluster = sb->cluster_size / sizeof(struct directory_item);
+
+    for (int i = 0; i < 5; i++) {
+        if (blocks[i] == CLUSTER_UNUSED) continue;
+        long cluster_offset = sb->data_start_address + (blocks[i] * sb->cluster_size);
+
+        for (int j = 0; j < items_per_cluster; j++) {
+            fseek(f, cluster_offset + (j * sizeof(struct directory_item)), SEEK_SET);
+            fread(&item, sizeof(struct directory_item), 1, f);
+            
+            if (item.item_name[0] != '\0') {
+                // Pokud najdeme cokoliv jiného než . a .., adresář není prázdný
+                if (strcmp(item.item_name, ".") != 0 && strcmp(item.item_name, "..") != 0) {
+                    return 0; // Není prázdný
+                }
+            }
+        }
+    }
+    return 1; // Je prázdný
+}
+
+void free_inode_resources(FILE *f, struct superblock *sb, int inode_id) {
+    struct pseudo_inode inode;
+    read_inode(f, sb, inode_id, &inode);
+
+    // 1. Uvolnění datových bloků v bitmapě
+    int32_t blocks[] = {inode.direct1, inode.direct2, inode.direct3, inode.direct4, inode.direct5};
+    for (int i = 0; i < 5; i++) {
+        if (blocks[i] != CLUSTER_UNUSED) {
+            set_bit(f, sb, false, blocks[i], false); // false = data bitmap, false = nastavit na 0
+        }
+    }
+
+    // 2. Uvolnění inodu v bitmapě
+    set_bit(f, sb, true, inode_id, false); // true = inode bitmap
+}

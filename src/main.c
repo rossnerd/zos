@@ -84,6 +84,26 @@ int main(int argc, char **argv) {
         if (fs_add(fs_name, argv[3], argv[4])) {
             printf("OK\n");
         }
+    } else if (strcmp(command, "cat") == 0) {
+        if (argc < 4) return 1;
+        fs_cat(fs_name, argv[3]); // Výstup řeší funkce sama
+
+    } else if (strcmp(command, "rm") == 0) {
+        if (argc < 4) return 1;
+        if (fs_rm(fs_name, argv[3])) printf("OK\n");
+
+    } else if (strcmp(command, "rmdir") == 0) {
+        if (argc < 4) return 1;
+        if (fs_rmdir(fs_name, argv[3])) printf("OK\n");
+
+    } else if (strcmp(command, "cp") == 0) {
+        if (argc < 5) return 1;
+        if (fs_cp(fs_name, argv[3], argv[4])) printf("OK\n");
+
+    } else if (strcmp(command, "mv") == 0) {
+        if (argc < 5) return 1;
+        if (fs_mv(fs_name, argv[3], argv[4])) printf("OK\n");
+        
     } else {
         printf("Neznámý příkaz: %s\n", command);
     }

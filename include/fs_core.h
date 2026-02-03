@@ -43,4 +43,14 @@ int fs_xcp(const char *filename, const char *s1, const char *s2, const char *s3)
 // Přidá obsah s2 na konec s1 (add s1 s2)
 int fs_add(const char *filename, const char *s1, const char *s2);
 
+int fs_cat(const char *filename, const char *path);
+
+int fs_rm(const char *filename, const char *path);
+
+int fs_rmdir(const char *filename, const char *path);
+
+int fs_cp(const char *filename, const char *s1, const char *s2);
+
+int fs_mv(const char *filename, const char *s1, const char *s2);
+
 #endif // FS_CORE_H

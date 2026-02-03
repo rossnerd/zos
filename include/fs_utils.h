@@ -19,4 +19,26 @@ int find_inode_in_dir(FILE *f, struct superblock *sb, int parent_inode_id, char 
 int add_directory_item(FILE *f, struct superblock *sb, int parent_inode_id, struct directory_item *new_item);
 int fs_path_to_inode(const char *filename, const char *path);
 
+// Odstraní položku (podle jména) z adresáře
+// Vrací 1 (úspěch), 0 (chyba/nenalezeno)
+int remove_directory_item(FILE *f, struct superblock *sb, int parent_inode_id, char *name);
+
+// Zkontroluje, zda je adresář prázdný (obsahuje jen "." a "..")
+// Vrací 1 (je prázdný), 0 (není prázdný)
+int is_dir_empty(FILE *f, struct superblock *sb, int inode_id);
+
+// Uvolní datové bloky a samotný inode (používá se pro rm/rmdir)
+void free_inode_resources(FILE *f, struct superblock *sb, int inode_id);
+
+// Odstraní položku (podle jména) z adresáře
+// Vrací 1 (úspěch), 0 (chyba/nenalezeno)
+int remove_directory_item(FILE *f, struct superblock *sb, int parent_inode_id, char *name);
+
+// Zkontroluje, zda je adresář prázdný (obsahuje jen "." a "..")
+// Vrací 1 (je prázdný), 0 (není prázdný)
+int is_dir_empty(FILE *f, struct superblock *sb, int inode_id);
+
+// Uvolní datové bloky a samotný inode (používá se pro rm/rmdir)
+void free_inode_resources(FILE *f, struct superblock *sb, int inode_id);
+
 #endif
