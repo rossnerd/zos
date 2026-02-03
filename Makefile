@@ -1,23 +1,17 @@
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -g -I./include
-# Seznam zdrojových souborů
-SRC = src/main.c src/fs_core.c
-# Generování seznamu objektových souborů (.o)
+# ZMĚNA: Přidány nové soubory
+SRC = src/main.c src/fs_ops.c src/fs_utils.c
 OBJ = $(SRC:.c=.o)
-# Název výsledné binárky
 TARGET = fs_app
 
-# Výchozí pravidlo
 all: $(TARGET)
 
-# Linkování
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^
 
-# Kompilace .c na .o
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Vyčištění projektu
 clean:
 	rm -f src/*.o $(TARGET)
