@@ -92,27 +92,119 @@ int fs_format(const char *filename, const char *size_str) {
 }
 
 // --- STATFS, INFO ---
+
+static int bit_is_set(const uint8_t *bm, int idx) {
+    return (bm[idx / 8] >> (idx % 8)) & 1;
+}
+
+static long count_set_bits_upto(const uint8_t *bm, long n_bits) {
+    long c = 0;
+    for (long i = 0; i < n_bits; i++) {
+        c += bit_is_set(bm, (int)i);
+    }
+    return c;
+}
+
 void fs_statfs(const char *filename) {
     FILE *f = fopen(filename, "rb");
     if (!f) { printf("FILE NOT FOUND\n"); return; }
+
     struct superblock sb;
-    load_superblock(f, &sb);
-    
-    // Zjednodušený výpočet pro ukázku - ve finále by se měla projít celá bitmapa
-    // Zde jen vypíšeme metadata
-    printf("--- STATFS ---\nDisk: %d B\nCluster: %d B\nCount: %d\n", sb.disk_size, sb.cluster_size, sb.cluster_count);
+    if (!load_superblock(f, &sb)) { fclose(f); printf("FILE NOT FOUND\n"); return; }
+
+    // skutečné počty dle rozložení ve VFS
+    long inode_count = (sb.data_start_address - sb.inode_start_address) / (long)sizeof(struct pseudo_inode);
+    long data_cluster_count = (sb.disk_size - sb.data_start_address) / (long)sb.cluster_size;
+
+    long inode_bm_bytes = sb.bitmap_start_address - sb.bitmapi_start_address;
+    long data_bm_bytes  = sb.inode_start_address - sb.bitmap_start_address;
+
+    if (inode_bm_bytes <= 0 || data_bm_bytes <= 0 || inode_count < 0 || data_cluster_count < 0) {
+        fclose(f);
+        printf("FILE NOT FOUND\n");
+        return;
+    }
+
+    uint8_t *ibm = (uint8_t*)malloc((size_t)inode_bm_bytes);
+    uint8_t *dbm = (uint8_t*)malloc((size_t)data_bm_bytes);
+    if (!ibm || !dbm) {
+        free(ibm); free(dbm);
+        fclose(f);
+        printf("FILE NOT FOUND\n");
+        return;
+    }
+
+    fseek(f, sb.bitmapi_start_address, SEEK_SET);
+    fread(ibm, 1, (size_t)inode_bm_bytes, f);
+
+    fseek(f, sb.bitmap_start_address, SEEK_SET);
+    fread(dbm, 1, (size_t)data_bm_bytes, f);
+
+    long used_inodes = count_set_bits_upto(ibm, inode_count);
+    long used_blocks = count_set_bits_upto(dbm, data_cluster_count);
+
+    long free_inodes = inode_count - used_inodes;
+    long free_blocks = data_cluster_count - used_blocks;
+
+    // počet adresářů (projdeme pouze obsazené i-uzly)
+    long dir_count = 0;
+    for (long i = 0; i < inode_count; i++) {
+        if (!bit_is_set(ibm, (int)i)) continue;
+        struct pseudo_inode ino;
+        read_inode(f, &sb, (int)i, &ino);
+        if (ino.isDirectory) dir_count++;
+    }
+
+    printf("--- STATFS ---\n");
+    printf("Disk: %d B\n", sb.disk_size);
+    printf("Cluster: %d B\n", sb.cluster_size);
+    printf("Inodes: %ld used, %ld free\n", used_inodes, free_inodes);
+    printf("Blocks: %ld used, %ld free\n", used_blocks, free_blocks);
+    printf("Directories: %ld\n", dir_count);
+
+    free(ibm);
+    free(dbm);
     fclose(f);
+}
+
+static void fs_info_print(const char *name, const struct pseudo_inode *inode) {
+    // Název – velikost – i-uzel – odkazy (přímé + nepřímé)
+    // (Formát je zvolen tak, aby odpovídal zadání: jméno + size + inode + seznam odkazů)
+    printf("%s - %d B - i-node %d\n", name, inode->file_size, inode->nodeid);
+
+    // přímé odkazy
+    printf("direct: ");
+    int first = 1;
+    int32_t d[5] = {inode->direct1, inode->direct2, inode->direct3, inode->direct4, inode->direct5};
+    for (int i = 0; i < 5; i++) {
+        if (d[i] == CLUSTER_UNUSED) continue;
+        if (!first) printf(", ");
+        printf("%d", d[i]);
+        first = 0;
+    }
+    if (first) printf("-");
+    printf("\n");
+
+    // nepřímé odkazy (u nás jsou to ukazatele na nepřímé bloky; jejich obsah lze případně rozšířit)
+    printf("indirect1: %d\n", inode->indirect1 == CLUSTER_UNUSED ? -1 : inode->indirect1);
+    printf("indirect2: %d\n", inode->indirect2 == CLUSTER_UNUSED ? -1 : inode->indirect2);
 }
 
 void fs_info(const char *filename, int inode_id) {
     FILE *f = fopen(filename, "rb");
-    if (!f) return;
+    if (!f) { printf("FILE NOT FOUND\n"); return; }
+
     struct superblock sb;
     load_superblock(f, &sb);
+
     struct pseudo_inode inode;
     read_inode(f, &sb, inode_id, &inode);
-    printf("ID: %d, Size: %d, Type: %s\n", inode.nodeid, inode.file_size, inode.isDirectory ? "DIR" : "FILE");
-    printf("Blocks: %d %d %d %d %d\n", inode.direct1, inode.direct2, inode.direct3, inode.direct4, inode.direct5);
+
+    // bez jména – fallback (používej spíš fs_info_path)
+    char tmp[32];
+    snprintf(tmp, sizeof(tmp), "inode%d", inode.nodeid);
+    fs_info_print(tmp, &inode);
+
     fclose(f);
 }
 
@@ -122,5 +214,21 @@ void fs_info_path(const char *filename, const char *path) {
         printf("PATH NOT FOUND\n");
         return;
     }
-    fs_info(filename, inode_id);
+
+    // basename pro NAME
+    const char *name = path;
+    const char *slash = strrchr(path, '/');
+    if (slash) name = slash + 1;
+    if (!name || name[0] == '\0') name = "/";
+
+    FILE *f = fopen(filename, "rb");
+    if (!f) { printf("FILE NOT FOUND\n"); return; }
+    struct superblock sb;
+    load_superblock(f, &sb);
+    struct pseudo_inode inode;
+    read_inode(f, &sb, inode_id, &inode);
+    fclose(f);
+
+    fs_info_print(name, &inode);
 }
+

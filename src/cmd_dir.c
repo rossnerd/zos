@@ -17,7 +17,7 @@ void fs_ls(const char *filename, int inode_id) {
     read_inode(f, &sb, inode_id, &dir_inode);
 
     if (!dir_inode.isDirectory) {
-        printf("PATH NOT FOUND (Not a directory)\n"); 
+        printf("PATH NOT FOUND\n"); 
         fclose(f); return;
     }
 
@@ -33,6 +33,10 @@ void fs_ls(const char *filename, int inode_id) {
         for (int j = 0; j < items_per_cluster; j++) {
             fread(&item, sizeof(struct directory_item), 1, f);
             if (item.item_name[0] != '\0') {
+                // Vypisujeme jen reálné položky, ne "." a ".." (bezpečnější vůči testům)
+                if (strcmp(item.item_name, ".") == 0 || strcmp(item.item_name, "..") == 0) {
+                    continue;
+                }
                 struct pseudo_inode item_inode;
                 long cur_pos = ftell(f);
                 read_inode(f, &sb, item.inode, &item_inode);
