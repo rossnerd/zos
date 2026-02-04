@@ -77,6 +77,51 @@ int fs_incp(const char *filename, const char *host_path, const char *vfs_path) {
     
 }
 
+// --- OUTCP ---
+int fs_outcp(const char *filename, const char *vfs_path, const char *host_path) {
+    FILE *f = fopen(filename, "rb");
+    if (!f) {
+        printf("FILE NOT FOUND\n");
+        return 0;
+    }
+    struct superblock sb;
+    load_superblock(f, &sb);
+
+    int inode_id = fs_path_to_inode(filename, vfs_path);
+    if (inode_id == -1) {
+        printf("FILE NOT FOUND\n");
+        fclose(f);
+        return 0;
+    }
+
+    struct pseudo_inode inode;
+    read_inode(f, &sb, inode_id, &inode);
+    if (inode.isDirectory) {
+        printf("FILE NOT FOUND\n");
+        fclose(f);
+        return 0;
+    }
+
+    uint8_t *buffer = malloc((size_t)inode.file_size);
+    if (!buffer) {
+        fclose(f);
+        return 0;
+    }
+    load_file_content(f, &sb, inode_id, buffer);
+    fclose(f);
+
+    FILE *out = fopen(host_path, "wb");
+    if (!out) {
+        printf("CANNOT CREATE FILE\n");
+        free(buffer);
+        return 0;
+    }
+    fwrite(buffer, 1, (size_t)inode.file_size, out);
+    fclose(out);
+    free(buffer);
+    return 1;
+}
+
 int fs_cat(const char *filename, const char *path) {
     FILE *f = fopen(filename, "rb");
     if (!f) return 0;

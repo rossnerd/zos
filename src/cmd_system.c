@@ -115,3 +115,12 @@ void fs_info(const char *filename, int inode_id) {
     printf("Blocks: %d %d %d %d %d\n", inode.direct1, inode.direct2, inode.direct3, inode.direct4, inode.direct5);
     fclose(f);
 }
+
+void fs_info_path(const char *filename, const char *path) {
+    int inode_id = fs_path_to_inode(filename, path);
+    if (inode_id == -1) {
+        printf("PATH NOT FOUND\n");
+        return;
+    }
+    fs_info(filename, inode_id);
+}

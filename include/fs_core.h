@@ -18,6 +18,9 @@ void fs_ls(const char *filename, int inode_id);
 // Vypíše informace o inodu/souboru (příkaz info)
 void fs_info(const char *filename, int inode_id);
 
+// info nad cestou (kvůli interaktivnímu režimu)
+void fs_info_path(const char *filename, const char *path);
+
 // Najde volný bit v bitmapě (pro inody nebo clustery)
 // Vrací index (0..N) nebo -1, pokud je plno.
 int find_free_bit(FILE *f, struct superblock *sb, bool is_inode_bitmap);
@@ -36,6 +39,10 @@ int fs_mkdir(const char *filename, const char *path);
 // Importuje soubor z Host OS do VFS
 // incp <host_path> <vfs_path>
 int fs_incp(const char *filename, const char *host_path, const char *vfs_path);
+
+// Export souboru z VFS do Host OS
+// outcp <vfs_path> <host_path>
+int fs_outcp(const char *filename, const char *vfs_path, const char *host_path);
 
 // Spojí soubory s1 a s2 do nového souboru s3 (xcp s1 s2 s3)
 int fs_xcp(const char *filename, const char *s1, const char *s2, const char *s3);
