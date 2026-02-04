@@ -1,0 +1,121 @@
+# ============================================================
+# ZOS VFS – test všech funkcionalit (1 příkaz / 1 řádek)
+# login: r  => rozšíření xcp + add
+# ============================================================
+
+# --- (A) Format + základní statistika ---
+format 1MB
+statfs
+pwd
+ls
+
+# --- (B) Navigace + mkdir/rmdir + chybové stavy ---
+mkdir /a
+mkdir /a/b
+ls /
+ls /a
+cd /a
+pwd
+cd b
+pwd
+cd /
+pwd
+
+# mkdir error: PATH NOT FOUND (neexistuje část cesty)
+mkdir /noexist/subdir
+
+# mkdir error: EXIST
+mkdir /a
+
+# rmdir error: FILE NOT FOUND
+rmdir /noexist
+
+# rmdir NOT EMPTY (a obsahuje b)
+rmdir /a
+
+# odstraň b (prázdný)
+rmdir /a/b
+ls /a
+# teď už je /a prázdné => rmdir OK
+rmdir /a
+ls /
+
+# --- (C) incp/outcp + cat + info ---
+mkdir /in
+incp h1.txt /in/h1.txt
+incp h2.txt /in/h2.txt
+ls /in
+cat /in/h1.txt
+info /in/h1.txt
+info /in
+
+# incp error: FILE NOT FOUND (host zdroj neexistuje)
+incp neexistuje.txt /in/x.txt
+
+# incp error: PATH NOT FOUND (cílová cesta ve VFS neexistuje)
+incp h1.txt /noexist/x.txt
+
+# outcp OK (export z VFS na host)
+outcp /in/h1.txt out_h1.txt
+
+# outcp error: FILE NOT FOUND (zdroj ve VFS neexistuje)
+outcp /in/neexistuje.txt out_x.txt
+
+# outcp error: PATH NOT FOUND (cílová cesta ve VFS neexistuje) – dle zadání
+# (Pozn.: pokud implementace PATH NOT FOUND u outcp nepoužívá, tak aspoň otestuješ chybový výstup)
+outcp /noexist/x.txt out_x.txt
+
+# cat error: FILE NOT FOUND
+cat /in/neexistuje.txt
+
+# info error: FILE NOT FOUND
+info /in/neexistuje.txt
+
+# --- (D) cp/mv/rm + jejich chybové stavy ---
+mkdir /work
+cp /in/h1.txt /work/c1.txt
+ls /work
+cat /work/c1.txt
+
+# cp FILE NOT FOUND (není zdroj)
+cp /in/neexistuje.txt /work/x.txt
+
+# cp PATH NOT FOUND (neexistuje cílová cesta)
+cp /in/h1.txt /noexist/x.txt
+
+# mv: přejmenování v rámci adresáře
+mv /work/c1.txt /work/c1_ren.txt
+ls /work
+cat /work/c1_ren.txt
+
+# mv FILE NOT FOUND
+mv /work/neexistuje.txt /work/x.txt
+
+# mv PATH NOT FOUND
+mv /work/c1_ren.txt /noexist/x.txt
+
+# rm OK
+rm /work/c1_ren.txt
+ls /work
+
+# rm FILE NOT FOUND
+rm /work/neexistuje.txt
+
+# --- (E) Rozšíření pro login r: xcp + add ---
+# xcp vytvoří /work/merged.txt jako spojení dvou souborů
+xcp /in/h1.txt /in/h2.txt /work/merged.txt
+cat /work/merged.txt
+info /work/merged.txt
+
+# add přidá obsah h2 na konec merged
+add /work/merged.txt /in/h2.txt
+cat /work/merged.txt
+info /work/merged.txt
+
+# Chybové stavy rozšíření (minimálně FILE NOT FOUND / PATH NOT FOUND podle implementace)
+xcp /in/neexistuje.txt /in/h2.txt /work/x.txt
+add /work/neexistuje.txt /in/h2.txt
+
+# --- (F) load itself (základ) – ukázkově nic, protože teď už běžíme uvnitř load ---
+statfs
+exit

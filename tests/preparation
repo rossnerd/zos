@@ -1,0 +1,4 @@
+#/bin/bash
+
+printf "AAAA\nBBBB\n" > h1.txt
+printf "1111\n2222\n" > h2.txt
