@@ -113,7 +113,7 @@ int fs_format(const char *filename, const char *size_str)
     memset(&sb, 0, sizeof(sb));
 
     /* signature má v zadání vypsanou hodnotu "r-login" */
-    strncpy(sb.signature, "r-login", sizeof(sb.signature) - 1);
+    strncpy(sb.signature, "rossnerd", sizeof(sb.signature) - 1);
     strncpy(sb.volume_descriptor, "Semestralni prace ZOS 2025", sizeof(sb.volume_descriptor) - 1);
 
     sb.disk_size = (int32_t)disk_size;

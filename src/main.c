@@ -329,6 +329,11 @@ static bool exec_command(ShellContext *ctx, int argc, char **argv)
         }
         char abs[MAX_PATH_LEN];
         make_abs_path(ctx->cwd, argv[1], abs, sizeof(abs));
+        if (strcmp(abs, ctx->cwd) == 0 || strcmp(abs, "/") == 0) {
+            /* Zakázat mazání aktuálního adresáře (a rootu) – udržení konzistence PWD. */
+            printf("NOT EMPTY\n");
+            return true;
+        }
         if (fs_rmdir(ctx->fs_name, abs)) {
             printf("OK\n");
         }
