@@ -426,8 +426,15 @@ static bool exec_command(ShellContext *ctx, int argc, char **argv)
             printf("FILE NOT FOUND\n");
             return true;
         }
-        /* Záměrně předáváme původní argumenty - implementace je v cmd_extra.c. */
-        if (fs_xcp(ctx->fs_name, argv[1], argv[2], argv[3])) {
+
+        /* Převod na absolutní cesty podle cwd (stejně jako u cp/mv/rm/...).
+           Bez toho by relativní cesty uvnitř podadresáře byly vyhodnoceny od '/'. */
+        char abs1[MAX_PATH_LEN], abs2[MAX_PATH_LEN], abs3[MAX_PATH_LEN];
+        make_abs_path(ctx->cwd, argv[1], abs1, sizeof(abs1));
+        make_abs_path(ctx->cwd, argv[2], abs2, sizeof(abs2));
+        make_abs_path(ctx->cwd, argv[3], abs3, sizeof(abs3));
+
+        if (fs_xcp(ctx->fs_name, abs1, abs2, abs3)) {
             printf("OK\n");
         }
         return true;
@@ -437,7 +444,13 @@ static bool exec_command(ShellContext *ctx, int argc, char **argv)
             printf("FILE NOT FOUND\n");
             return true;
         }
-        if (fs_add(ctx->fs_name, argv[1], argv[2])) {
+
+        /* Převod na absolutní cesty podle cwd. */
+        char abs1[MAX_PATH_LEN], abs2[MAX_PATH_LEN];
+        make_abs_path(ctx->cwd, argv[1], abs1, sizeof(abs1));
+        make_abs_path(ctx->cwd, argv[2], abs2, sizeof(abs2));
+
+        if (fs_add(ctx->fs_name, abs1, abs2)) {
             printf("OK\n");
         }
         return true;
